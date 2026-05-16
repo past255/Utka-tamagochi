@@ -1,1 +1,582 @@
-HEY 
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Детский сад Утиндус</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  :root {
+    --bg-color: #87CEEB;
+    --text-color: #333;
+    --ui-bg: #fff;
+    --btn-bg: #f0f0f0;
+    --btn-border: #888;
+  }
+
+  body, html {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background-color: #222;
+    display: flex; justify-content: center; align-items: center;
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    overflow: hidden; touch-action: manipulation;
+  }
+
+  #app {
+    width: 100%; max-width: 480px; height: 100vh;
+    background-color: var(--bg-color);
+    position: relative; overflow: hidden;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  }
+
+  .screen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; box-sizing: border-box; padding: 20px;
+  }
+  .screen.active { display: flex; }
+
+  h1, h2, p { font-size: 14px; line-height: 1.5; text-shadow: 1px 1px 0 #fff; }
+  h1 { font-size: 18px; margin-bottom: 30px; }
+
+  button {
+    font-family: 'Press Start 2P', monospace; font-size: 10px;
+    padding: 15px; margin: 5px; width: 90%;
+    background: var(--btn-bg); border: 4px solid var(--btn-border);
+    cursor: pointer; text-transform: uppercase;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.2);
+  }
+  button:active { box-shadow: 0 0 0 rgba(0,0,0,0.2); transform: translate(4px, 4px); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: 4px 4px 0 rgba(0,0,0,0.2); }
+
+  /* SVG & Animations */
+  .pixel-art { width: 128px; height: 128px; image-rendering: pixelated; }
+  
+  @keyframes shake {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-10deg); }
+    75% { transform: rotate(10deg); }
+  }
+  .egg-anim { animation: shake 3s infinite ease-in-out; }
+  
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .duck-anim { animation: bob 2s infinite ease-in-out; }
+
+  /* Main Screen UI */
+  #main-top { position: absolute; top: 10px; width: 90%; background: rgba(255,255,255,0.8); padding: 10px; border: 4px solid #000; box-sizing: border-box; }
+  .bar-container { display: flex; align-items: center; margin-bottom: 5px; font-size: 8px; justify-content: space-between;}
+  .bar { display: flex; gap: 2px; }
+  .bar-segment { width: 15px; height: 15px; border: 2px solid #000; background: #ddd; }
+  .bar-segment.filled { background: #4CAF50; }
+  .bar-segment.warning { background: #FFEB3B; }
+  .bar-segment.critical { background: #F44336; }
+  
+  #main-bottom { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; }
+  
+  #sleep-btn { position: absolute; top: 120px; right: 20px; width: auto; font-size: 8px; padding: 10px; z-index: 10; display: none;}
+
+  /* Mini-games */
+  canvas { background: #8bc34a; border: 4px solid #000; width: 100%; max-height: 400px; }
+  #math-container { background: #fff; padding: 20px; border: 4px solid #000; width: 90%; }
+  .math-question { font-size: 20px; margin-bottom: 20px; }
+  
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- Экран 1: ИНТРО -->
+  <div id="screen-intro" class="screen active">
+    <h1>Детский сад Утиндус</h1>
+    <svg class="pixel-art egg-anim" id="egg-svg" viewBox="0 0 8 8" shape-rendering="crispEdges">
+      <rect x="2" y="1" width="4" height="6" fill="#fff"/>
+      <rect x="3" y="0" width="2" height="1" fill="#fff"/>
+      <rect x="2" y="7" width="4" height="1" fill="#ccc"/>
+    </svg>
+    <div id="name-selection" class="hidden">
+      <p>Выбери имя:</p>
+      <button id="name-btn-1"></button>
+      <button id="name-btn-2"></button>
+      <button id="name-btn-3"></button>
+    </div>
+    <button id="hatch-btn" style="margin-top: 20px;">Выбрать имя</button>
+  </div>
+
+  <!-- Экран 2: ГЛАВНЫЙ -->
+  <div id="screen-main" class="screen">
+    <div id="main-top">
+      <div class="bar-container"><span>Голод:</span><div id="bar-hunger" class="bar"></div></div>
+      <div class="bar-container"><span>Веселье:</span><div id="bar-fun" class="bar"></div></div>
+      <div class="bar-container"><span>Гигиена:</span><div id="bar-hygiene" class="bar"></div></div>
+      <div style="text-align: center; margin-top: 5px; font-size: 10px;" id="duck-name-display"></div>
+    </div>
+    
+    <button id="sleep-btn">Уложить спать</button>
+
+    <div id="duck-container" class="duck-anim">
+      <!-- Базовый SVG Утки -->
+      <svg id="duck-svg" class="pixel-art" viewBox="0 0 8 8" shape-rendering="crispEdges">
+        <rect x="2" y="1" width="4" height="3" fill="#FFEB3B"/>
+        <rect x="6" y="2" width="2" height="1" fill="#FF9800"/> <!-- клюв -->
+        <rect x="4" y="2" width="1" height="1" fill="#000"/> <!-- глаз -->
+        <rect x="1" y="4" width="6" height="3" fill="#FFEB3B"/>
+        <rect x="2" y="7" width="1" height="1" fill="#FF9800"/> <!-- лапа -->
+        <rect x="5" y="7" width="1" height="1" fill="#FF9800"/> <!-- лапа -->
+      </svg>
+    </div>
+
+    <div id="main-bottom">
+      <button id="btn-feed">Покормить</button>
+      <button id="btn-play">Поиграть</button>
+      <button id="btn-clean">Почистить</button>
+    </div>
+  </div>
+
+  <!-- Экран 3: КОРМЛЕНИЕ -->
+  <div id="screen-feed" class="screen">
+    <h2>Что будем есть?</h2>
+    <div id="feed-anim" class="pixel-art hidden" style="margin-bottom: 20px;">
+        <svg viewBox="0 0 8 8" shape-rendering="crispEdges">
+            <rect x="2" y="1" width="4" height="3" fill="#FFEB3B"/>
+            <rect x="6" y="2" width="2" height="2" fill="#FF9800"/> <!-- открытый клюв -->
+            <rect x="4" y="2" width="1" height="1" fill="#000"/>
+            <rect x="1" y="4" width="6" height="3" fill="#FFEB3B"/>
+        </svg>
+    </div>
+    <div id="feed-menu">
+        <button onclick="performAction('hunger', 1, 'feed')">Мороженое</button>
+        <button onclick="performAction('hunger', 1, 'feed')">Шоколад</button>
+        <button onclick="performAction('hunger', 1, 'feed')">Напиток</button>
+        <button onclick="switchScreen('main')" style="background: #ccc;">Отмена</button>
+    </div>
+  </div>
+
+  <!-- Экран 4: ЧИСТКА -->
+  <div id="screen-clean" class="screen">
+    <h2>Процедуры</h2>
+    <div id="clean-anim" class="pixel-art hidden" style="margin-bottom: 20px;">
+        <svg viewBox="0 0 8 8" shape-rendering="crispEdges">
+            <rect x="1" y="0" width="1" height="3" fill="#03A9F4"/> <!-- вода -->
+            <rect x="5" y="0" width="1" height="3" fill="#03A9F4"/>
+            <rect x="2" y="2" width="4" height="3" fill="#FFEB3B"/>
+            <rect x="1" y="4" width="6" height="3" fill="#FFEB3B"/>
+        </svg>
+    </div>
+    <div id="clean-menu">
+        <button onclick="performAction('hygiene', 1, 'clean')">Душ</button>
+        <button onclick="performAction('hygiene', 1, 'clean')">Туалет</button>
+        <button onclick="performAction('hygiene', 1, 'clean')">Почистить зубы</button>
+        <button onclick="switchScreen('main')" style="background: #ccc;">Отмена</button>
+    </div>
+  </div>
+
+  <!-- Экран 5: ВЫБОР ИГРЫ -->
+  <div id="screen-play-choice" class="screen">
+    <h2>Выбор игры</h2>
+    <button onclick="startFoxGame()">Убеги от лисы</button>
+    <button onclick="startMathGame()">Математика</button>
+    <button onclick="switchScreen('main')" style="background: #ccc; margin-top: 20px;">Назад</button>
+  </div>
+
+  <!-- Экран: Игра Лиса -->
+  <div id="screen-minigame-fox" class="screen">
+    <div style="width: 100%; display: flex; justify-content: space-between; margin-bottom: 10px;">
+        <span>Время: <span id="fox-timer">15</span></span>
+    </div>
+    <canvas id="foxCanvas" width="320" height="400"></canvas>
+  </div>
+
+  <!-- Экран: Игра Математика -->
+  <div id="screen-minigame-math" class="screen">
+    <div id="math-container">
+        <p>Решено: <span id="math-score">0</span>/3</p>
+        <div class="math-question" id="math-q">10 + 5 = ?</div>
+        <button id="math-btn-1" onclick="checkMath(1)"></button>
+        <button id="math-btn-2" onclick="checkMath(2)"></button>
+        <button id="math-btn-3" onclick="checkMath(3)"></button>
+    </div>
+  </div>
+
+  <!-- Экран 6: КОНЕЦ -->
+  <div id="screen-gameover" class="screen" style="background: #000; color: #fff;">
+    <h1 style="color: red;">КОНЕЦ ИГРЫ</h1>
+    <p style="margin-bottom: 30px;">Вашу утку отдали другому воспитателю...</p>
+    <button onclick="resetGame()">Начать заново</button>
+  </div>
+
+</div>
+
+<script>
+// 1. Данные и Константы
+const DUCK_NAMES = [
+  "Мэгги", "Кряж", "Дональд", "Скрудж", "Билли", "Вилли", "Дилли", "Понка", 
+  "Зигзаг", "Кряква", "Пекко", "Чип", "Дейзи", "Люси", "Того", "Кваки", 
+  "Пушок", "Плюх", "Желток", "Крякер", "Сильвер", "Оливер", "Барни", "Лаки", 
+  "Спайк", "Коко", "Руди", "Пеппер", "Тоби", "Вафля"
+];
+
+// Время деградации (в миллисекундах)
+const DEGRADATION = {
+  hunger:  [26*3600000, 20*3600000, 10*3600000, 2*3600000, 30*60000],
+  hygiene: [40*3600000, 24*3600000, 12*3600000, 3*3600000, 1*3600000],
+  fun:     [45*3600000, 6*3600000,  1*3600000,  30*60000,  15*60000]
+};
+
+let state = {
+  gameState: "INTRO", 
+  duckName: "",
+  hatchTime: 0, 
+  lastInteraction: { hunger: 0, hygiene: 0, fun: 0 },
+  bars: { hunger: 5, hygiene: 5, fun: 5 },
+  isSleeping: false
+};
+
+let gameLoopInterval;
+
+// 2. Управление состоянием
+function saveState() {
+    localStorage.setItem('utindus_state', JSON.stringify(state));
+}
+
+function loadState() {
+    const saved = localStorage.getItem('utindus_state');
+    if (saved) {
+        state = JSON.parse(saved);
+        if (state.gameState === 'INTRO') return;
+        calculateBars();
+        if (state.gameState !== 'GAME_OVER') {
+            switchScreen('main');
+        } else {
+            switchScreen('gameover');
+        }
+    }
+}
+
+function resetGame() {
+    localStorage.removeItem('utindus_state');
+    location.reload();
+}
+
+// 3. Логика времени
+function calculateBars() {
+    if (state.gameState === 'GAME_OVER') return;
+    
+    const now = Date.now();
+    let isGameOver = false;
+
+    ['hunger', 'hygiene', 'fun'].forEach(cat => {
+        let elapsed = now - state.lastInteraction[cat];
+        let currentBars = 5;
+        
+        // Проверяем пороги (от максимального времени к минимальному)
+        for (let i = 0; i < 5; i++) {
+            if (elapsed >= DEGRADATION[cat][i]) {
+                currentBars = i;
+                break;
+            }
+        }
+        
+        state.bars[cat] = currentBars;
+        if (currentBars === 0) isGameOver = true;
+    });
+
+    if (isGameOver) {
+        state.gameState = 'GAME_OVER';
+        switchScreen('gameover');
+    }
+    saveState();
+    renderBars();
+    checkSleepMode();
+}
+
+// 4. UI Рендер
+function switchScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + screenId).classList.add('active');
+    
+    if (screenId === 'main') {
+        state.gameState = 'MAIN';
+        document.getElementById('duck-name-display').innerText = state.duckName;
+        calculateBars();
+        saveState();
+    }
+}
+
+function renderBars() {
+    ['hunger', 'hygiene', 'fun'].forEach(cat => {
+        const val = state.bars[cat];
+        const container = document.getElementById(`bar-${cat}`);
+        container.innerHTML = '';
+        
+        for (let i = 0; i < 5; i++) {
+            let div = document.createElement('div');
+            div.className = 'bar-segment';
+            if (i < val) {
+                div.classList.add('filled');
+                if (val <= 3) div.className = 'bar-segment warning';
+                if (val === 1) div.className = 'bar-segment critical';
+            }
+            container.appendChild(div);
+        }
+        
+        // Блокировка кнопок
+        if (cat === 'hunger') document.getElementById('btn-feed').disabled = (val === 5);
+        if (cat === 'hygiene') document.getElementById('btn-clean').disabled = (val === 5);
+        if (cat === 'fun') document.getElementById('btn-play').disabled = (val === 5);
+    });
+}
+
+function checkSleepMode() {
+    const hour = new Date().getHours();
+    const btn = document.getElementById('sleep-btn');
+    const svg = document.getElementById('duck-svg');
+    
+    if (hour >= 18 || hour < 5) {
+        btn.style.display = 'block';
+    } else {
+        btn.style.display = 'none';
+        state.isSleeping = false;
+    }
+
+    if (state.isSleeping) {
+        svg.innerHTML = `
+            <rect x="2" y="1" width="4" height="3" fill="#FFEB3B"/>
+            <rect x="6" y="2" width="2" height="1" fill="#FF9800"/>
+            <rect x="4" y="2" width="1" height="1" fill="#888"/> <!-- закрытый глаз -->
+            <rect x="1" y="4" width="6" height="3" fill="#FFEB3B"/>
+            <text x="5" y="1" font-size="2" fill="#000">Z</text>
+        `;
+        document.getElementById('duck-container').classList.remove('duck-anim');
+    } else {
+        svg.innerHTML = `
+            <rect x="2" y="1" width="4" height="3" fill="#FFEB3B"/>
+            <rect x="6" y="2" width="2" height="1" fill="#FF9800"/> 
+            <rect x="4" y="2" width="1" height="1" fill="#000"/> 
+            <rect x="1" y="4" width="6" height="3" fill="#FFEB3B"/>
+            <rect x="2" y="7" width="1" height="1" fill="#FF9800"/> 
+            <rect x="5" y="7" width="1" height="1" fill="#FF9800"/> 
+        `;
+        document.getElementById('duck-container').classList.add('duck-anim');
+    }
+}
+
+// 5. Действия (Кормежка, Чистка)
+document.getElementById('btn-feed').onclick = () => switchScreen('feed');
+document.getElementById('btn-clean').onclick = () => switchScreen('clean');
+document.getElementById('btn-play').onclick = () => switchScreen('play-choice');
+document.getElementById('sleep-btn').onclick = () => { state.isSleeping = !state.isSleeping; checkSleepMode(); saveState(); };
+
+function performAction(category, amount, screenPrefix) {
+    document.getElementById(`${screenPrefix}-menu`).classList.add('hidden');
+    document.getElementById(`${screenPrefix}-anim`).classList.remove('hidden');
+    
+    setTimeout(() => {
+        // Установка времени так, чтобы восстановить 1 деление
+        // Для упрощения: сдвигаем lastInteraction вперед во времени, чтобы "откатить" деградацию на 1 шаг
+        if (state.bars[category] < 5) {
+            let nextThreshold = DEGRADATION[category][4 - state.bars[category]];
+            let timeNeeded = nextThreshold; 
+            // Это сбросит таймер на полную шкалу (5/5). По ТЗ: восстанавливает 1 бар.
+            // Более правильный подход: мы симулируем, что последнее взаимодействие было недавно на нужный интервал.
+            let currentDeficit = Date.now() - state.lastInteraction[category];
+            let newDeficit = DEGRADATION[category][5 - state.bars[category] - 1] || 0; // Шаг назад
+            state.lastInteraction[category] = Date.now() - newDeficit + 1000;
+        }
+
+        // Если стало 5, то просто Date.now()
+        if(state.bars[category] + amount >= 5) {
+             state.lastInteraction[category] = Date.now();
+        }
+
+        document.getElementById(`${screenPrefix}-menu`).classList.remove('hidden');
+        document.getElementById(`${screenPrefix}-anim`).classList.add('hidden');
+        switchScreen('main');
+    }, 1500);
+}
+
+// 6. Инициализация и Интро
+document.getElementById('hatch-btn').onclick = () => {
+    document.getElementById('hatch-btn').classList.add('hidden');
+    document.getElementById('egg-svg').classList.add('hidden');
+    document.getElementById('name-selection').classList.remove('hidden');
+    
+    // Рандомные имена
+    let shuffled = DUCK_NAMES.sort(() => 0.5 - Math.random());
+    for(let i=1; i<=3; i++) {
+        let btn = document.getElementById(`name-btn-${i}`);
+        btn.innerText = shuffled[i];
+        btn.onclick = () => {
+            state.duckName = shuffled[i];
+            state.hatchTime = Date.now();
+            state.lastInteraction = { hunger: Date.now(), hygiene: Date.now(), fun: Date.now() };
+            state.bars = { hunger: 5, hygiene: 5, fun: 5 };
+            saveState();
+            switchScreen('main');
+            setInterval(calculateBars, 10000); // Проверка каждые 10 сек
+        };
+    }
+};
+
+// 7. Мини-игра: Математика
+let mathScore = 0;
+let correctAnswer = 0;
+
+function startMathGame() {
+    switchScreen('minigame-math');
+    mathScore = 0;
+    updateMathUI();
+    nextMathQuestion();
+}
+
+function nextMathQuestion() {
+    let a = Math.floor(Math.random() * 20) + 1;
+    let b = Math.floor(Math.random() * 20) + 1;
+    let isAdd = Math.random() > 0.5;
+    
+    if (!isAdd && a < b) { let temp = a; a = b; b = temp; } // Избегаем отрицательных
+    if (isAdd && a + b > 40) { a = Math.floor(a/2); b = Math.floor(b/2); } // Лимит 40
+
+    correctAnswer = isAdd ? a + b : a - b;
+    document.getElementById('math-q').innerText = `${a} ${isAdd ? '+' : '-'} ${b} = ?`;
+
+    let answers = [correctAnswer];
+    while(answers.length < 3) {
+        let wrong = correctAnswer + Math.floor(Math.random() * 10) - 5;
+        if (wrong !== correctAnswer && wrong >= 0 && wrong <= 40 && !answers.includes(wrong)) {
+            answers.push(wrong);
+        }
+    }
+    answers.sort(() => 0.5 - Math.random());
+
+    for(let i=1; i<=3; i++) {
+        let btn = document.getElementById(`math-btn-${i}`);
+        btn.innerText = answers[i-1];
+        btn.dataset.val = answers[i-1];
+    }
+}
+
+function checkMath(btnIndex) {
+    let btn = document.getElementById(`math-btn-${btnIndex}`);
+    if (parseInt(btn.dataset.val) === correctAnswer) {
+        mathScore++;
+        updateMathUI();
+        if (mathScore >= 3) {
+            winMiniGame();
+        } else {
+            nextMathQuestion();
+        }
+    } else {
+        mathScore = 0; // Ошибка сбрасывает серию
+        updateMathUI();
+        nextMathQuestion();
+    }
+}
+
+function updateMathUI() {
+    document.getElementById('math-score').innerText = mathScore;
+}
+
+// 8. Мини-игра: Лиса (Canvas)
+let foxReq;
+let foxCtx = document.getElementById('foxCanvas').getContext('2d');
+let foxGame = { active: false, timer: 15, duckX: 160, obstacles: [], lastTime: 0, invulTimer: 0 };
+
+function startFoxGame() {
+    switchScreen('minigame-fox');
+    foxGame = { active: true, timer: 15, duckX: 160, obstacles: [], lastTime: Date.now(), invulTimer: 0 };
+    document.getElementById('fox-timer').innerText = foxGame.timer;
+    foxLoop();
+}
+
+document.getElementById('foxCanvas').addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    let rect = e.target.getBoundingClientRect();
+    let x = e.touches[0].clientX - rect.left;
+    foxGame.duckX = Math.max(10, Math.min(310, x));
+});
+
+function foxLoop() {
+    if (!foxGame.active) return;
+    
+    let now = Date.now();
+    let dt = now - foxGame.lastTime;
+    
+    // Таймер
+    if (dt >= 1000) {
+        foxGame.timer--;
+        document.getElementById('fox-timer').innerText = foxGame.timer;
+        foxGame.lastTime = now;
+        if (foxGame.timer <= 0) {
+            foxGame.active = false;
+            winMiniGame();
+            return;
+        }
+    }
+
+    // Логика
+    if (foxGame.invulTimer > 0) foxGame.invulTimer--;
+    
+    if (Math.random() < 0.05) { // Спавн препятствий
+        let type = Math.floor(Math.random() * 3);
+        foxGame.obstacles.push({ x: Math.random() * 280 + 20, y: -20, type: type });
+    }
+
+    foxGame.obstacles.forEach((obs, i) => {
+        obs.y += 4;
+        // Коллизия (простая AABB)
+        if (foxGame.invulTimer === 0 && Math.abs(obs.x - foxGame.duckX) < 20 && Math.abs(obs.y - 360) < 20) {
+            foxGame.invulTimer = 60; // 1 секунда неуязвимости (при ~60fps)
+        }
+    });
+    foxGame.obstacles = foxGame.obstacles.filter(o => o.y < 420);
+
+    // Отрисовка
+    foxCtx.clearRect(0, 0, 320, 400);
+    
+    // Препятствия
+    foxGame.obstacles.forEach(obs => {
+        if (obs.type === 0) { foxCtx.fillStyle = '#795548'; foxCtx.fillRect(obs.x-15, obs.y-15, 30, 30); } // Пенек
+        else if (obs.type === 1) { foxCtx.fillStyle = '#000'; foxCtx.beginPath(); foxCtx.arc(obs.x, obs.y, 15, 0, Math.PI*2); foxCtx.fill(); } // Яма
+        else { foxCtx.fillStyle = '#2196F3'; foxCtx.beginPath(); foxCtx.ellipse(obs.x, obs.y, 20, 10, 0, 0, Math.PI*2); foxCtx.fill(); } // Лужа
+    });
+
+    // Утка
+    foxCtx.globalAlpha = foxGame.invulTimer > 0 ? 0.5 : 1.0;
+    foxCtx.fillStyle = '#FFEB3B';
+    foxCtx.fillRect(foxGame.duckX - 15, 360 - 15, 30, 30);
+    foxCtx.fillStyle = '#FF9800';
+    foxCtx.fillRect(foxGame.duckX + 5, 360 - 5, 15, 10); // клюв
+    foxCtx.globalAlpha = 1.0;
+
+    foxReq = requestAnimationFrame(foxLoop);
+}
+
+function winMiniGame() {
+    // Восстанавливаем 1 бар веселья по тому же принципу
+    let category = 'fun';
+    if (state.bars[category] < 5) {
+        let newDeficit = DEGRADATION[category][5 - state.bars[category] - 1] || 0;
+        state.lastInteraction[category] = Date.now() - newDeficit + 1000;
+    }
+    if(state.bars[category] + 1 >= 5) {
+        state.lastInteraction[category] = Date.now();
+    }
+    switchScreen('main');
+}
+
+// Запуск
+window.onload = () => {
+    loadState();
+    if (state.gameState === 'MAIN') {
+        setInterval(calculateBars, 10000);
+    }
+};
+</script>
+</body>
+</html>
