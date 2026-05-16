@@ -123,11 +123,11 @@
       <!-- Базовый SVG Утки -->
       <svg id="duck-svg" class="pixel-art" viewBox="0 0 8 8" shape-rendering="crispEdges">
         <rect x="2" y="1" width="4" height="3" fill="#FFEB3B"/>
-        <rect x="6" y="2" width="2" height="1" fill="#FF9800"/> <!-- клюв -->
-        <rect x="4" y="2" width="1" height="1" fill="#000"/> <!-- глаз -->
+        <rect x="6" y="2" width="2" height="1" fill="#FF9800"/> 
+        <rect x="4" y="2" width="1" height="1" fill="#000"/> 
         <rect x="1" y="4" width="6" height="3" fill="#FFEB3B"/>
-        <rect x="2" y="7" width="1" height="1" fill="#FF9800"/> <!-- лапа -->
-        <rect x="5" y="7" width="1" height="1" fill="#FF9800"/> <!-- лапа -->
+        <rect x="2" y="7" width="1" height="1" fill="#FF9800"/> 
+        <rect x="5" y="7" width="1" height="1" fill="#FF9800"/> 
       </svg>
     </div>
 
@@ -144,7 +144,7 @@
     <div id="feed-anim" class="pixel-art hidden" style="margin-bottom: 20px;">
         <svg viewBox="0 0 8 8" shape-rendering="crispEdges">
             <rect x="2" y="1" width="4" height="3" fill="#FFEB3B"/>
-            <rect x="6" y="2" width="2" height="2" fill="#FF9800"/> <!-- открытый клюв -->
+            <rect x="6" y="2" width="2" height="2" fill="#FF9800"/> 
             <rect x="4" y="2" width="1" height="1" fill="#000"/>
             <rect x="1" y="4" width="6" height="3" fill="#FFEB3B"/>
         </svg>
@@ -162,7 +162,7 @@
     <h2>Процедуры</h2>
     <div id="clean-anim" class="pixel-art hidden" style="margin-bottom: 20px;">
         <svg viewBox="0 0 8 8" shape-rendering="crispEdges">
-            <rect x="1" y="0" width="1" height="3" fill="#03A9F4"/> <!-- вода -->
+            <rect x="1" y="0" width="1" height="3" fill="#03A9F4"/> 
             <rect x="5" y="0" width="1" height="3" fill="#03A9F4"/>
             <rect x="2" y="2" width="4" height="3" fill="#FFEB3B"/>
             <rect x="1" y="4" width="6" height="3" fill="#FFEB3B"/>
@@ -222,6 +222,7 @@ const DUCK_NAMES = [
 ];
 
 // Время деградации (в миллисекундах)
+// Индексы: 0 = 0 баров, 1 = 1 бар, 2 = 2 бара, 3 = 3 бара, 4 = 4 бара
 const DEGRADATION = {
   hunger:  [26*3600000, 20*3600000, 10*3600000, 2*3600000, 30*60000],
   hygiene: [40*3600000, 24*3600000, 12*3600000, 3*3600000, 1*3600000],
@@ -233,7 +234,7 @@ let state = {
   duckName: "",
   hatchTime: 0, 
   lastInteraction: { hunger: 0, hygiene: 0, fun: 0 },
-  bars: { hunger: 5, hygiene: 5, fun: 5 },
+  bars: { hunger: 3, hygiene: 3, fun: 3 },
   isSleeping: false
 };
 
@@ -274,7 +275,6 @@ function calculateBars() {
         let elapsed = now - state.lastInteraction[cat];
         let currentBars = 5;
         
-        // Проверяем пороги (от максимального времени к минимальному)
         for (let i = 0; i < 5; i++) {
             if (elapsed >= DEGRADATION[cat][i]) {
                 currentBars = i;
@@ -348,7 +348,7 @@ function checkSleepMode() {
         svg.innerHTML = `
             <rect x="2" y="1" width="4" height="3" fill="#FFEB3B"/>
             <rect x="6" y="2" width="2" height="1" fill="#FF9800"/>
-            <rect x="4" y="2" width="1" height="1" fill="#888"/> <!-- закрытый глаз -->
+            <rect x="4" y="2" width="1" height="1" fill="#888"/> 
             <rect x="1" y="4" width="6" height="3" fill="#FFEB3B"/>
             <text x="5" y="1" font-size="2" fill="#000">Z</text>
         `;
@@ -377,21 +377,16 @@ function performAction(category, amount, screenPrefix) {
     document.getElementById(`${screenPrefix}-anim`).classList.remove('hidden');
     
     setTimeout(() => {
-        // Установка времени так, чтобы восстановить 1 деление
-        // Для упрощения: сдвигаем lastInteraction вперед во времени, чтобы "откатить" деградацию на 1 шаг
-        if (state.bars[category] < 5) {
-            let nextThreshold = DEGRADATION[category][4 - state.bars[category]];
-            let timeNeeded = nextThreshold; 
-            // Это сбросит таймер на полную шкалу (5/5). По ТЗ: восстанавливает 1 бар.
-            // Более правильный подход: мы симулируем, что последнее взаимодействие было недавно на нужный интервал.
-            let currentDeficit = Date.now() - state.lastInteraction[category];
-            let newDeficit = DEGRADATION[category][5 - state.bars[category] - 1] || 0; // Шаг назад
-            state.lastInteraction[category] = Date.now() - newDeficit + 1000;
-        }
-
-        // Если стало 5, то просто Date.now()
-        if(state.bars[category] + amount >= 5) {
-             state.lastInteraction[category] = Date.now();
+        let current = state.bars[category];
+        if (current < 5) {
+            let target = current + amount;
+            if (target >= 5) {
+                state.lastInteraction[category] = Date.now();
+            } else {
+                // Выставляем время так, чтобы оно соответствовало порогу для нужного кол-ва баров
+                let newElapsed = DEGRADATION[category][target] + 1000;
+                state.lastInteraction[category] = Date.now() - newElapsed;
+            }
         }
 
         document.getElementById(`${screenPrefix}-menu`).classList.remove('hidden');
@@ -406,7 +401,6 @@ document.getElementById('hatch-btn').onclick = () => {
     document.getElementById('egg-svg').classList.add('hidden');
     document.getElementById('name-selection').classList.remove('hidden');
     
-    // Рандомные имена
     let shuffled = DUCK_NAMES.sort(() => 0.5 - Math.random());
     for(let i=1; i<=3; i++) {
         let btn = document.getElementById(`name-btn-${i}`);
@@ -414,11 +408,20 @@ document.getElementById('hatch-btn').onclick = () => {
         btn.onclick = () => {
             state.duckName = shuffled[i];
             state.hatchTime = Date.now();
-            state.lastInteraction = { hunger: Date.now(), hygiene: Date.now(), fun: Date.now() };
-            state.bars = { hunger: 5, hygiene: 5, fun: 5 };
+            
+            // ИСКУССТВЕННОЕ СТАРЕНИЕ ПРИ РОЖДЕНИИ ДО 3-Х БАРОВ
+            // Мы отнимаем от текущего времени порог для 3-х баров (плюс 1 секунду), 
+            // чтобы система считала, что утка уже достаточно голодна, скучает и хочет мыться.
+            state.lastInteraction = { 
+                hunger: Date.now() - DEGRADATION.hunger[3] - 1000, 
+                hygiene: Date.now() - DEGRADATION.hygiene[3] - 1000, 
+                fun: Date.now() - DEGRADATION.fun[3] - 1000 
+            };
+            state.bars = { hunger: 3, hygiene: 3, fun: 3 };
+            
             saveState();
             switchScreen('main');
-            setInterval(calculateBars, 10000); // Проверка каждые 10 сек
+            setInterval(calculateBars, 10000); 
         };
     }
 };
@@ -439,8 +442,8 @@ function nextMathQuestion() {
     let b = Math.floor(Math.random() * 20) + 1;
     let isAdd = Math.random() > 0.5;
     
-    if (!isAdd && a < b) { let temp = a; a = b; b = temp; } // Избегаем отрицательных
-    if (isAdd && a + b > 40) { a = Math.floor(a/2); b = Math.floor(b/2); } // Лимит 40
+    if (!isAdd && a < b) { let temp = a; a = b; b = temp; } 
+    if (isAdd && a + b > 40) { a = Math.floor(a/2); b = Math.floor(b/2); } 
 
     correctAnswer = isAdd ? a + b : a - b;
     document.getElementById('math-q').innerText = `${a} ${isAdd ? '+' : '-'} ${b} = ?`;
@@ -472,7 +475,7 @@ function checkMath(btnIndex) {
             nextMathQuestion();
         }
     } else {
-        mathScore = 0; // Ошибка сбрасывает серию
+        mathScore = 0; 
         updateMathUI();
         nextMathQuestion();
     }
@@ -507,7 +510,6 @@ function foxLoop() {
     let now = Date.now();
     let dt = now - foxGame.lastTime;
     
-    // Таймер
     if (dt >= 1000) {
         foxGame.timer--;
         document.getElementById('fox-timer').innerText = foxGame.timer;
@@ -519,53 +521,50 @@ function foxLoop() {
         }
     }
 
-    // Логика
     if (foxGame.invulTimer > 0) foxGame.invulTimer--;
     
-    if (Math.random() < 0.05) { // Спавн препятствий
+    if (Math.random() < 0.05) { 
         let type = Math.floor(Math.random() * 3);
         foxGame.obstacles.push({ x: Math.random() * 280 + 20, y: -20, type: type });
     }
 
     foxGame.obstacles.forEach((obs, i) => {
         obs.y += 4;
-        // Коллизия (простая AABB)
         if (foxGame.invulTimer === 0 && Math.abs(obs.x - foxGame.duckX) < 20 && Math.abs(obs.y - 360) < 20) {
-            foxGame.invulTimer = 60; // 1 секунда неуязвимости (при ~60fps)
+            foxGame.invulTimer = 60; 
         }
     });
     foxGame.obstacles = foxGame.obstacles.filter(o => o.y < 420);
 
-    // Отрисовка
     foxCtx.clearRect(0, 0, 320, 400);
     
-    // Препятствия
     foxGame.obstacles.forEach(obs => {
-        if (obs.type === 0) { foxCtx.fillStyle = '#795548'; foxCtx.fillRect(obs.x-15, obs.y-15, 30, 30); } // Пенек
-        else if (obs.type === 1) { foxCtx.fillStyle = '#000'; foxCtx.beginPath(); foxCtx.arc(obs.x, obs.y, 15, 0, Math.PI*2); foxCtx.fill(); } // Яма
-        else { foxCtx.fillStyle = '#2196F3'; foxCtx.beginPath(); foxCtx.ellipse(obs.x, obs.y, 20, 10, 0, 0, Math.PI*2); foxCtx.fill(); } // Лужа
+        if (obs.type === 0) { foxCtx.fillStyle = '#795548'; foxCtx.fillRect(obs.x-15, obs.y-15, 30, 30); } 
+        else if (obs.type === 1) { foxCtx.fillStyle = '#000'; foxCtx.beginPath(); foxCtx.arc(obs.x, obs.y, 15, 0, Math.PI*2); foxCtx.fill(); } 
+        else { foxCtx.fillStyle = '#2196F3'; foxCtx.beginPath(); foxCtx.ellipse(obs.x, obs.y, 20, 10, 0, 0, Math.PI*2); foxCtx.fill(); } 
     });
 
-    // Утка
     foxCtx.globalAlpha = foxGame.invulTimer > 0 ? 0.5 : 1.0;
     foxCtx.fillStyle = '#FFEB3B';
     foxCtx.fillRect(foxGame.duckX - 15, 360 - 15, 30, 30);
     foxCtx.fillStyle = '#FF9800';
-    foxCtx.fillRect(foxGame.duckX + 5, 360 - 5, 15, 10); // клюв
+    foxCtx.fillRect(foxGame.duckX + 5, 360 - 5, 15, 10); 
     foxCtx.globalAlpha = 1.0;
 
     foxReq = requestAnimationFrame(foxLoop);
 }
 
 function winMiniGame() {
-    // Восстанавливаем 1 бар веселья по тому же принципу
     let category = 'fun';
-    if (state.bars[category] < 5) {
-        let newDeficit = DEGRADATION[category][5 - state.bars[category] - 1] || 0;
-        state.lastInteraction[category] = Date.now() - newDeficit + 1000;
-    }
-    if(state.bars[category] + 1 >= 5) {
-        state.lastInteraction[category] = Date.now();
+    let current = state.bars[category];
+    if (current < 5) {
+        let target = current + 1;
+        if (target >= 5) {
+            state.lastInteraction[category] = Date.now();
+        } else {
+            let newElapsed = DEGRADATION[category][target] + 1000;
+            state.lastInteraction[category] = Date.now() - newElapsed;
+        }
     }
     switchScreen('main');
 }
